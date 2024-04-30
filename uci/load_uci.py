@@ -24,7 +24,7 @@ def load_gap_splits():
             ordering = argsort(x[:,dim])
             tr, te = concatenate((ordering[:x.shape[0]//3], ordering[2*x.shape[0]//3:])), ordering[x.shape[0] // 3 + 1: 2 * x.shape[0]//3]
             tr, val = train_test_split(tr, test_size=.1)
-            splits[dataset].append({'tr': tr, 'val':val, 'te':te})
+            splits[dataset].append({'tr': tr.astype(int), 'val':val.astype(int), 'te':te.astype(int)})
     return splits
 
 
@@ -37,7 +37,5 @@ def load_standard_splits():
                 tr =loadtxt(dataset / 'data' / f"{'_'.join(('index', 'train', str(i)))}.txt")
                 tr, val = train_test_split(tr, test_size=.1)
                 te =loadtxt(dataset / 'data' / f"{'_'.join(('index', 'test', str(i)))}.txt")
-                splits[dataset.stem].append({'tr': tr, 'val': val, 'te': te})
+                splits[dataset.stem].append({'tr': tr.astype(int), 'val': val.astype(int), 'te': te.astype(int)})
     return splits
-
-print(len(load_standard_splits()['boston-housing']))
