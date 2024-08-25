@@ -7,6 +7,7 @@ from math import floor
 
 UCI_DIR = Path(__file__).parent
 
+
 def load_datasets():
     uci_bench = {}
 
@@ -46,27 +47,26 @@ def load_modified_gap_splits(use_validation, test_size):
     return splits
 
 def load_standard_splits(use_validation):
+    # splits from https://arxiv.org/abs/1811.09385
     splits = defaultdict(list)
     for dataset in UCI_DIR.iterdir():
         if dataset.is_dir() and (dataset / 'data').exists():
             n = int(loadtxt(dataset / 'data' / 'n_splits.txt').item())
             assert n > 0
             for i in range(n):
-                if (dataset / 'data' / f'index_train_{i}.txt').exists():
+                tr =loadtxt(dataset / 'data' / f'index_train_{i}.txt').astype(int)
+                assert tr.dtype == int, 'UCI Train index must have int type'
 
-                    tr =loadtxt(dataset / 'data' / f'index_train_{i}.txt').astype(int)
-                    assert tr.dtype == int, 'UCI Train index must have int type'
+                if use_validation:
+                    tr, val = train_test_split(tr, test_size=.1)
+                    assert tr.dtype == int, 'UCI Train indices must have int type'
+                    assert val.dtype == int, 'UCI Validations indices must have int type'
+                else:
+                    val = None
+                te = loadtxt(dataset / 'data' / f"{'_'.join(('index', 'test', str(i)))}.txt").astype(int)
+                assert te.dtype == int, 'UCI Test indices must have int type'
 
-                    if use_validation:
-                        tr, val = train_test_split(tr, test_size=.1)
-                        assert tr.dtype == int, 'UCI Train indices must have int type'
-                        assert val.dtype == int, 'UCI Validations indices must have int type'
-                    else:
-                        val = None
-                    te = loadtxt(dataset / 'data' / f"{'_'.join(('index', 'test', str(i)))}.txt").astype(int)
-                    assert te.dtype == int, 'UCI Test indices must have int type'
-
-                    splits[dataset.stem].append({'tr': tr, 'val': val, 'te': te})
+                splits[dataset.stem].append({'tr': tr, 'val': val, 'te': te})
     return splits
 
 
@@ -114,5 +114,3 @@ def pprint_summary_latex(split, use_validation):
     footer = r'''        \bottomrule
 \end{tabular}'''
     return '\n'.join([header, data, footer])
-    
-print(pprint_summary_latex('gap10', False))
