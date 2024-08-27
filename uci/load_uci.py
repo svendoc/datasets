@@ -101,9 +101,4 @@ def pprint_summary_latex(split, use_validation):
     footer = r'''        \bottomrule
 \end{tabular}'''
     return '\n'.join([header, data, footer])
-
-print(pprint_summary_latex('gap', False))
-
-    
-
     
