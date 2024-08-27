@@ -1,9 +1,6 @@
-
 # Datasets
 # - CIFAR10 Corrupted [1]
 #   - In tensorflow datasets: cifar10_corrupted
-# - CIFAR100 Corrupted [1]
-#   - In tensorflow datasets: cifar100_corrupted
 # - CIFAR 10 [2]
 #   - In tensorflow datasets: cifar10
 # - CIFAR 100 [2]
@@ -24,65 +21,37 @@ from sklearn.model_selection import train_test_split
 from pathlib import Path
 
 # TODO: refactor to avoid copying
+# TODO: add evaluation dataset construction
+
 DataState = namedtuple("data", ["xtr", "xval", "xte", "ytr", "yval", "yte"])
 DataPair = namedtuple("DataPair", ["x", "y"])
 
 CORRUPT_DATA_DIR = Path(__file__).parent
 CORRUPT_DATA_DIR.mkdir(exist_ok=True)
 
-CORRUPT_DATASETS = ['cifar10', 'cifar100', 'cifar10_corrupted', 'cifar100_corrupted']
+CORRUPT_DATASETS = ['cifar10', 'cifar100', 'cifar10_corrupted']
 
 def load_tf_img_dataset(dataset, rng_seed=None, use_validation=True, take=-1):
-    data = {}
+    data = {"train": (None, None), "validation": (None,None), "test": (None,None)}
     dss = tfds.load(dataset, data_dir=CORRUPT_DATA_DIR)
-    splits = set(dss.keys()) & {"train", "validation", "test"}
 
-    for split in splits:
+    for split in set(dss.keys()):
         ds = dss[split]
-        data[split] = np.stack(
-            tuple(
-                np.concatenate(
-                    (
-                        datum["image"].numpy().squeeze().reshape(-1),
-                        datum["label"].numpy().squeeze().reshape(-1),
-                    )
-                )
+        data[split] = tuple(map(np.stack,
+            zip(*((datum["image"].numpy().squeeze(), datum["label"].numpy().squeeze())
                 for datum in ds.take(take)
-            )
-        )
+            ))))
 
-    if "validation" in splits:
-        tr = np.vstack(
-            [data["train"], data["validation"]]
-        )  # Use own train/validate split
-    else:
-        tr = data["train"]
-
-    if use_validation:
-        tr, val = train_test_split(
-            tr,
+    if use_validation and data['train'] is not None and data["validation"] is None:
+        xtr, xval, ytr, yval = train_test_split(
+            *data['train'],
             train_size=0.9,
             random_state=rng_seed,
         )
-        dataset = DataState(
-            *map(
-                partial(jnp.array, dtype=int),
-                [tr[:, :-1], val[:, :-1], data["test"][:, :-1]],
-            ),
-            *map(
-                partial(jnp.array, dtype=int),
-                [tr[:, -1], val[:, -1], data["test"][:, -1]],
-            ),
-        )
-    else:
-        dataset = DataState(
-            np.array(tr[:, :-1], dtype=int),
-            None,
-            np.array(data["test"][:, :-1]),
-            np.array(tr[:, -1], dtype=int),
-            None,
-            np.array(data["test"][:, -1]),
-        )
+        data['train'] = xtr, ytr
+        data['validation'] = xval, yval
+
+    dataset = DataState( *data['train'], *data['validation'], *data['test'])
 
     return dataset
 
