@@ -3,6 +3,7 @@ from pathlib import Path
 from jax import numpy as jnp
 from collections import defaultdict
 from sklearn.model_selection import train_test_split
+from math import floor
 
 UCI_DIR = Path(__file__).parent
 
@@ -18,21 +19,31 @@ def load_datasets():
 
 
 def load_gap_splits(use_validation):
+    return load_modified_gap_splits(use_validation, 1./3.)
+
+def load_modified_gap_splits(use_validation, test_size):
+    assert 0. <= test_size and test_size <= 1.
     splits = defaultdict(list)
     for dataset, (x,y) in load_datasets().items():
-        for dim in range(x.shape[1]):
+        n, m = x.shape
+        tail_size = (1 - test_size) / 2
+        assert (2*tail_size + test_size) == 1.
+        
+        before = floor(n * tail_size)
+        after = floor(n *(tail_size + test_size))
+        
+        for dim in range(m):
             ordering = argsort(x[:,dim])
-            tr, te = concatenate((ordering[:x.shape[0]//3], ordering[2*x.shape[0]//3:])), ordering[x.shape[0] // 3 + 1: 2 * x.shape[0]//3]
-            te = te.astype(int)
+            tr = concatenate((ordering[:before], ordering[after:])).astype(int)
+            te = ordering[before:after].astype(int)
             if use_validation:
                 tr, val = train_test_split(tr, test_size=.1)
                 val = val.astype(int)
             else:
                 val = None
-            tr = tr.astype(int)
             splits[dataset].append({'tr': tr, 'val':val, 'te':te})
-    return splits
 
+    return splits
 
 def load_standard_splits(use_validation):
     splits = defaultdict(list)
@@ -60,13 +71,15 @@ def load_standard_splits(use_validation):
 
 
 def pprint_summary_latex(split, use_validation):
-    assert split in ['std', 'gap'], 'Unkwown dataset split'
+    assert split in ['std', 'gap', 'gap10'], 'Unkwown dataset split'
     datasets = load_datasets()
     match split:
         case 'std':
             indices = load_standard_splits(use_validation)
         case 'gap':
             indices = load_gap_splits(use_validation)
+        case 'gap10':
+            indices = load_modified_gap_splits(use_validation, 1./10.)
 
     if use_validation:
         header = r'''\begin{tabular}{lccccc}
@@ -102,3 +115,4 @@ def pprint_summary_latex(split, use_validation):
 \end{tabular}'''
     return '\n'.join([header, data, footer])
     
+print(pprint_summary_latex('gap10', False))
