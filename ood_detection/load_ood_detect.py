@@ -1,5 +1,5 @@
 # Datasets
-# - Street View House Numbers  [1] 
+# - Street View House Numbers  [1]
 #   - In tensorflow datasets: svhn_cropped
 # - MNIST [???]
 #   - In tensorflow-datasets: mnist
@@ -11,12 +11,12 @@
 #   - In tensorflow datasets: fashion-mnist
 
 # Refs
-# [1] Netzer, Yuval, et al. "Reading digits in natural images with unsupervised feature learning." 
+# [1] Netzer, Yuval, et al. "Reading digits in natural images with unsupervised feature learning."
 #     NIPS workshop on deep learning and unsupervised feature learning. Vol. 2011. No. 2. 2011.
 # [2] Krizhevsky, Alex, and Geoffrey Hinton. "Learning multiple layers of features from tiny images." (2009): 7.
-# [3] Lake, Brenden M., Ruslan Salakhutdinov, and Joshua B. Tenenbaum. 
+# [3] Lake, Brenden M., Ruslan Salakhutdinov, and Joshua B. Tenenbaum.
 #     "Human-level concept learning through probabilistic program induction." Science 350.6266 (2015): 1332-1338.
-# [4] Xiao, Han, Kashif Rasul, and Roland Vollgraf. 
+# [4] Xiao, Han, Kashif Rasul, and Roland Vollgraf.
 #     "Fashion-mnist: a novel image dataset for benchmarking machine learning algorithms." arXiv preprint arXiv:1708.07747 (2017).
 
 
@@ -33,7 +33,8 @@ DataPair = namedtuple("DataPair", ["x", "y"])
 OOD_DATA_DIR = Path(__file__).parent
 OOD_DATA_DIR.mkdir(exist_ok=True)
 
-OOD_DATASETS = ['mnist', 'svhn_cropped', 'cifar10', 'omniglot', 'fashion_mnist']
+OOD_DATASETS = ["mnist", "svhn_cropped", "cifar10", "omniglot", "fashion_mnist"]
+
 
 def load_tf_img_dataset(dataset, rng_seed=None, use_validation=True, take=-1):
     data = {}
@@ -89,8 +90,15 @@ def load_tf_img_dataset(dataset, rng_seed=None, use_validation=True, take=-1):
 
     return dataset
 
+
 def load_datasets(rng_seed, use_val, take):
-    datasets = {dataset: load_tf_img_dataset(dataset, rng_seed=rng_seed, use_validation=use_val, take=take) for dataset in OOD_DATASETS}
+    datasets = {
+        dataset: load_tf_img_dataset(
+            dataset, rng_seed=rng_seed, use_validation=use_val, take=take
+        )
+        for dataset in OOD_DATASETS
+    }
     return datasets
+
 
 load_datasets(0, False, -1)
