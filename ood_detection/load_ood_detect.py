@@ -23,11 +23,12 @@
 import tensorflow_datasets as tfds
 import numpy as np
 from collections import namedtuple
+import jax.numpy as jnp
 
 from sklearn.model_selection import train_test_split
 from pathlib import Path
 
-DataState = namedtuple("data", ["xtr", "xval", "xte", "ytr", "yval", "yte"])
+Dataset = namedtuple("Dataset", ["xtr", "ytr", "xval", "yval", "xte", "yte"])
 DataPair = namedtuple("DataPair", ["x", "y"])
 
 OOD_DATA_DIR = Path(__file__).parent
@@ -36,69 +37,44 @@ OOD_DATA_DIR.mkdir(exist_ok=True)
 OOD_DATASETS = ["mnist", "svhn_cropped", "cifar10", "omniglot", "fashion_mnist"]
 
 
-def load_tf_img_dataset(dataset, rng_seed=None, use_validation=True, take=-1):
+def load_dataset(dataset, rng_seed, use_val, take):
     data = {}
     dss = tfds.load(dataset, data_dir=OOD_DATA_DIR)
     splits = set(dss.keys()) & {"train", "validation", "test"}
 
     for split in splits:
         ds = dss[split]
-        data[split] = np.stack(
-            tuple(
-                np.concatenate(
-                    (
-                        datum["image"].numpy().squeeze().reshape(-1),
-                        datum["label"].numpy().squeeze().reshape(-1),
-                    )
-                )
-                for datum in ds.take(take)
-            )
+
+        data[split] = DataPair(
+            jnp.stack(
+                [datum["image"].numpy() / 255.0 for datum in ds.take(take)]
+            ),
+            jnp.stack([datum["label"].numpy() for datum in ds.take(take)]).astype(int),
         )
 
-    if "validation" in splits:
-        tr = np.vstack(
-            [data["train"], data["validation"]]
-        )  # Use own train/validate split
-    else:
-        tr = data["train"]
-
-    if use_validation:
-        tr, val = train_test_split(
-            tr,
+    if use_val and "validation" not in splits:
+        xtr, xval, ytr, yval = train_test_split(
+            *data["train"],
             train_size=0.9,
             random_state=rng_seed,
         )
-        dataset = DataState(
-            *map(
-                partial(jnp.array, dtype=int),
-                [tr[:, :-1], val[:, :-1], data["test"][:, :-1]],
-            ),
-            *map(
-                partial(jnp.array, dtype=int),
-                [tr[:, -1], val[:, -1], data["test"][:, -1]],
-            ),
-        )
+        data["train"] = DataPair(xtr, ytr)
+        data["validation"] = DataPair(xval, yval)
     else:
-        dataset = DataState(
-            np.array(tr[:, :-1], dtype=int),
-            None,
-            np.array(data["test"][:, :-1]),
-            np.array(tr[:, -1], dtype=int),
-            None,
-            np.array(data["test"][:, -1]),
-        )
+        data["validation"] = DataPair(None, None)
+
+    return Dataset(
+        *data["train"],
+        *data["validation"],
+        *data["test"],
+    )
 
     return dataset
 
 
 def load_datasets(rng_seed, use_val, take):
     datasets = {
-        dataset: load_tf_img_dataset(
-            dataset, rng_seed=rng_seed, use_validation=use_val, take=take
-        )
+        dataset: load_dataset(dataset, rng_seed=rng_seed, use_val=use_val, take=take)
         for dataset in OOD_DATASETS
     }
     return datasets
-
-
-load_datasets(0, False, -1)

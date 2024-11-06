@@ -101,9 +101,9 @@ def pprint_summary_latex(split, use_validation):
     rows = []
 
     for dataset, (x, _) in sorted(datasets.items(), key=lambda item: item[0]):
-        for l, ind in enumerate(indices[dataset]):
+        for i, ind in enumerate(indices[dataset]):
             xtr = x[ind["tr"]]
-            if l == 0:
+            if i == 0:
                 n, m = xtr.shape
             assert xtr.shape == (n, m), f"Train splits not equally sized for {dataset}."
 
