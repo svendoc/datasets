@@ -21,7 +21,6 @@
 
 
 import tensorflow_datasets as tfds
-import numpy as np
 from collections import namedtuple
 import jax.numpy as jnp
 
@@ -45,11 +44,10 @@ def load_dataset(dataset, rng_seed, use_val, take):
     for split in splits:
         ds = dss[split]
 
+        itms = ds.take(take)
         data[split] = DataPair(
-            jnp.stack(
-                [datum["image"].numpy() / 255.0 for datum in ds.take(take)]
-            ),
-            jnp.stack([datum["label"].numpy() for datum in ds.take(take)]).astype(int),
+            jnp.stack([itm["image"].numpy() / 255.0 for itm in itms]),
+            jnp.stack([itm["label"].numpy() for itm in itms]).astype(int),
         )
 
     if use_val and "validation" not in splits:
