@@ -21,14 +21,8 @@
 
 
 import tensorflow_datasets as tfds
-from collections import namedtuple
-import jax.numpy as jnp
-
-from sklearn.model_selection import train_test_split
+import tensorflow as tf
 from pathlib import Path
-
-Dataset = namedtuple("Dataset", ["xtr", "ytr", "xval", "yval", "xte", "yte"])
-DataPair = namedtuple("DataPair", ["x", "y"])
 
 OOD_DATA_DIR = Path(__file__).parent
 OOD_DATA_DIR.mkdir(exist_ok=True)
@@ -36,43 +30,29 @@ OOD_DATA_DIR.mkdir(exist_ok=True)
 OOD_DATASETS = ["mnist", "svhn_cropped", "cifar10", "omniglot", "fashion_mnist"]
 
 
-def load_dataset(dataset, rng_seed, use_val, take):
-    data = {}
-    dss = tfds.load(dataset, data_dir=OOD_DATA_DIR)
-    splits = set(dss.keys()) & {"train", "validation", "test"}
+batch_size = 512
 
-    for split in splits:
-        ds = dss[split]
+def train_batches(batch_size, dataset):
+    assert dataset in OOD_DATASETS
 
-        itms = ds.take(take)
-        data[split] = DataPair(
-            jnp.stack([itm["image"].numpy() / 255.0 for itm in itms]),
-            jnp.stack([itm["label"].numpy() for itm in itms]).astype(int),
-        )
+    # as_supervised=True gives us the (image, label) as a tuple instead of a dict
+    ds = tfds.load(name=dataset, split='train', as_supervised=True, data_dir=OOD_DATA_DIR)
+    n = tf.data.experimental.cardinality(ds).numpy().item()
 
-    if use_val and "validation" not in splits:
-        xtr, xval, ytr, yval = train_test_split(
-            *data["train"],
-            train_size=0.9,
-            random_state=rng_seed,
-        )
-        data["train"] = DataPair(xtr, ytr)
-        data["validation"] = DataPair(xval, yval)
-    else:
-        data["validation"] = DataPair(None, None)
+    # You can build up an arbitrary tf.data input pipeline
+    ds = ds.shuffle(buffer_size=10_000).batch(batch_size, drop_remainder=True).prefetch(1)
 
-    return Dataset(
-        *data["train"],
-        *data["validation"],
-        *data["test"],
-    )
-
-    return dataset
+    # tfds.dataset_as_numpy converts the tf.data.Dataset into an iterable of NumPy arrays
+    return tfds.as_numpy(ds), n
 
 
-def load_datasets(rng_seed, use_val, take):
-    datasets = {
-        dataset: load_dataset(dataset, rng_seed=rng_seed, use_val=use_val, take=take)
-        for dataset in OOD_DATASETS
-    }
-    return datasets
+def test_data(dataset):
+    assert dataset in OOD_DATASETS
+
+    # as_supervised=True gives us the (image, label) as a tuple instead of a dict
+    ds = tfds.load(name=dataset, split='test', as_supervised=True, data_dir=OOD_DATA_DIR)
+    n = tf.data.experimental.cardinality(ds).numpy().item()
+
+    x,y = list(tfds.as_numpy(ds.batch(n)))[0]
+    return x, y, n
+
